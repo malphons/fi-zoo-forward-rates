@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 180" fill="none">
+  <defs>
+    <linearGradient id="hjm-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#161b22"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="hjm-glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a371f7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#a371f7" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="hjm-blur">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="280" height="180" rx="12" fill="url(#hjm-bg)"/>
+  <rect x="0.5" y="0.5" width="279" height="179" rx="12" stroke="#30363d" stroke-width="1" fill="none"/>
+
+  <!-- Grid lines -->
+  <g stroke="#21262d" stroke-width="0.5">
+    <line x1="30" y1="30" x2="30" y2="150"/>
+    <line x1="30" y1="150" x2="260" y2="150"/>
+    <line x1="30" y1="90" x2="260" y2="90" stroke-dasharray="2,4" opacity="0.5"/>
+    <line x1="30" y1="60" x2="260" y2="60" stroke-dasharray="2,4" opacity="0.3"/>
+    <line x1="30" y1="120" x2="260" y2="120" stroke-dasharray="2,4" opacity="0.3"/>
+  </g>
+
+  <!-- Forward curves evolving - earliest (most faded) -->
+  <path d="M30,130 Q80,125 120,118 Q160,108 200,100 Q230,95 260,92"
+        stroke="#a371f7" stroke-width="1" opacity="0.08" fill="none"/>
+  <path d="M30,125 Q80,118 120,110 Q160,98 200,88 Q230,82 260,78"
+        stroke="#a371f7" stroke-width="1" opacity="0.12" fill="none"/>
+  <path d="M30,120 Q80,110 120,98 Q160,85 200,75 Q230,68 260,65"
+        stroke="#a371f7" stroke-width="1" opacity="0.18" fill="none"/>
+  <path d="M30,118 Q80,108 120,95 Q160,80 200,72 Q230,66 260,63"
+        stroke="#a371f7" stroke-width="1" opacity="0.25" fill="none"/>
+  <path d="M30,115 Q80,103 120,88 Q160,74 200,66 Q230,60 260,58"
+        stroke="#a371f7" stroke-width="1" opacity="0.35" fill="none"/>
+  <path d="M30,110 Q80,96 120,82 Q160,68 200,60 Q230,55 260,53"
+        stroke="#a371f7" stroke-width="1" opacity="0.45" fill="none"/>
+
+  <!-- Current forward curve (brightest) with glow -->
+  <path d="M30,108 Q80,92 120,76 Q160,62 200,55 Q230,50 260,48"
+        stroke="#a371f7" stroke-width="2" opacity="0.4" fill="none" filter="url(#hjm-blur)"/>
+  <path d="M30,108 Q80,92 120,76 Q160,62 200,55 Q230,50 260,48"
+        stroke="#a371f7" stroke-width="2" fill="none"/>
+
+  <!-- Fill under current curve -->
+  <path d="M30,108 Q80,92 120,76 Q160,62 200,55 Q230,50 260,48 L260,150 L30,150 Z"
+        fill="url(#hjm-glow)" opacity="0.4"/>
+
+  <!-- Initial curve (dashed green) -->
+  <path d="M30,130 Q80,118 120,105 Q160,90 200,82 Q230,76 260,73"
+        stroke="#3fb950" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.6" fill="none"/>
+
+  <!-- Axis labels -->
+  <text x="145" y="170" text-anchor="middle" fill="#8b949e" font-size="9" font-family="sans-serif">Maturity T</text>
+  <text x="14" y="92" text-anchor="middle" fill="#8b949e" font-size="9" font-family="sans-serif" transform="rotate(-90,14,92)">f(t,T)</text>
+
+  <!-- Title -->
+  <text x="145" y="20" text-anchor="middle" fill="#a371f7" font-size="11" font-weight="600" font-family="sans-serif">HJM Forward Curve Surface</text>
+</svg>

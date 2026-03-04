@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIBOR Market Model (BGM) - Forward Rate Models</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#bc8cff;--accent2:#d2a8ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.header{padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem;position:sticky;top:0;background:var(--bg);z-index:100}
+.back-link{font-size:.85rem;color:var(--text2)}
+.header h1{font-size:1.3rem;font-weight:600}
+.header .tag{background:var(--accent);color:#fff;padding:2px 10px;border-radius:12px;font-size:.7rem;font-weight:600;margin-left:auto}
+
+.main{max-width:1400px;margin:0 auto;padding:2rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+.full{grid-column:1/-1}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem}
+.card h2{font-size:1.05rem;font-weight:600;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.card h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.card p,.card li{color:var(--text2);font-size:.88rem;line-height:1.6}
+
+.formula-box{background:#1c2128;border:1px solid var(--border);border-radius:8px;padding:1.25rem;margin:.75rem 0;text-align:center;font-size:1.3rem;font-family:'Cambria Math','Latin Modern Math',serif;letter-spacing:1px}
+.formula-box .hl{color:var(--accent);font-weight:700}
+
+.controls{display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin:.75rem 0}
+.control-group{display:flex;flex-direction:column;gap:.25rem}
+.control-group label{font-size:.75rem;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+select,input[type=range]{background:#1c2128;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:.85rem;cursor:pointer}
+select:focus{outline:1px solid var(--accent)}
+input[type=range]{-webkit-appearance:none;height:6px;padding:0;border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg)}
+.btn{background:var(--accent);color:#fff;border:none;padding:7px 18px;border-radius:6px;font-size:.82rem;cursor:pointer;font-weight:500;transition:all .15s}
+.btn:hover{filter:brightness(1.15)}
+.btn.outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn.outline:hover{border-color:var(--accent);color:var(--accent)}
+.val-display{font-size:.85rem;color:var(--accent);font-weight:600;min-width:3ch;text-align:right}
+
+.canvas-wrap{position:relative;width:100%;background:#0d1117;border-radius:8px;border:1px solid var(--border);overflow:hidden}
+.canvas-wrap canvas{display:block;width:100%;height:100%}
+
+.legend{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.5rem}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--text2)}
+.legend-item .swatch{width:12px;height:3px;border-radius:2px}
+
+.callout{background:rgba(188,140,255,0.08);border:1px solid rgba(188,140,255,0.25);border-radius:8px;padding:1rem 1.25rem;margin:.75rem 0}
+.callout-title{font-weight:600;font-size:.85rem;color:var(--accent);margin-bottom:.35rem}
+
+/* Price table */
+.price-table{width:100%;border-collapse:collapse;margin-top:.75rem;font-size:.82rem}
+.price-table th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500;text-transform:uppercase;font-size:.7rem;letter-spacing:.5px}
+.price-table td{padding:6px 8px;border-bottom:1px solid #21262d}
+.price-table tr:hover td{background:rgba(188,140,255,0.05)}
+.match{color:var(--green)}
+.mismatch{color:var(--red)}
+
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <a href="../../" class="back-link">Forward Rate Models</a>
+    <span style="color:var(--text2)">/</span>
+    <h1>LIBOR Market Model (BGM)</h1>
+    <span class="tag">1997</span>
+</div>
+
+<div class="main">
+
+<!-- Row 1: Formula + Overview -->
+<div class="grid">
+    <div class="card">
+        <h2><span class="dot"></span>The LMM/BGM Equation</h2>
+        <p>The LIBOR Market Model directly models discrete forward LIBOR rates L<sub>k</sub>(t) under their respective forward measures:</p>
+        <div class="formula-box">
+            dL<sub>k</sub>(t) = L<sub>k</sub>(t) [ <span class="hl">&mu;<sub>k</sub></span>(t) dt + <span class="hl">&sigma;<sub>k</sub></span>(t) dW<sub>k</sub>(t) ]
+        </div>
+        <p style="margin-top:.5rem">Under the terminal forward measure Q<sup>T<sub>N</sub></sup>, the drift is determined by no-arbitrage:</p>
+        <div class="formula-box">
+            <span class="hl">&mu;<sub>k</sub></span>(t) = &sum;<sub>j=k+1</sub><sup>N</sup> &sigma;<sub>k</sub>(t) &rho;<sub>kj</sub> &sigma;<sub>j</sub>(t) &delta;<sub>j</sub> L<sub>j</sub>(t) / (1 + &delta;<sub>j</sub> L<sub>j</sub>(t))
+        </div>
+        <div class="callout">
+            <div class="callout-title">Key Insight</div>
+            <p>By modeling observable market rates (LIBOR forwards) directly, calibration to cap/floor volatilities is straightforward. Each forward rate is log-normal under its own forward measure, matching the Black caplet formula exactly.</p>
+        </div>
+    </div>
+    <div class="card">
+        <h2><span class="dot"></span>Model Overview</h2>
+        <p>The LMM models a set of forward rates L<sub>1</sub>, ..., L<sub>N</sub> resetting at times T<sub>1</sub> < ... < T<sub>N</sub>.</p>
+        <ul style="list-style:none;margin-top:.75rem">
+            <li style="padding:.35rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--accent);font-weight:600">Log-normal dynamics</span> -- Each rate follows geometric Brownian motion under its own measure</li>
+            <li style="padding:.35rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--accent);font-weight:600">Correlation structure</span> -- Rates are correlated via dW<sub>i</sub> dW<sub>j</sub> = &rho;<sub>ij</sub> dt</li>
+            <li style="padding:.35rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--accent);font-weight:600">Monte Carlo simulation</span> -- No closed form for swaptions; simulation is the standard approach</li>
+            <li style="padding:.35rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--accent);font-weight:600">Market-consistent</span> -- Caplet prices match Black formula by construction</li>
+            <li style="padding:.35rem 0"><span style="color:var(--accent);font-weight:600">Drift correction</span> -- Under any single measure, drifts of other rates are adjusted for consistency</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Row 2: Forward Rates Bar Chart + Time Series -->
+<div class="grid">
+    <div class="card">
+        <h2><span class="dot"></span>Current Forward Rate Term Structure</h2>
+        <p style="margin-bottom:.75rem">Discrete forward rates L<sub>1</sub> through L<sub>10</sub> at the current simulation time.</p>
+        <div class="canvas-wrap" style="height:300px">
+            <canvas id="barCanvas"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <h2><span class="dot"></span>Monte Carlo Paths</h2>
+        <p style="margin-bottom:.5rem">Simulated paths for the selected forward rate. Each path represents one possible evolution.</p>
+        <div class="controls">
+            <div class="control-group">
+                <label>Forward Rate</label>
+                <select id="selRate">
+                    <option value="0">L1 (0-1Y)</option>
+                    <option value="1">L2 (1-2Y)</option>
+                    <option value="2">L3 (2-3Y)</option>
+                    <option value="3">L4 (3-4Y)</option>
+                    <option value="4" selected>L5 (4-5Y)</option>
+                    <option value="5">L6 (5-6Y)</option>
+                    <option value="6">L7 (6-7Y)</option>
+                    <option value="7">L8 (7-8Y)</option>
+                    <option value="8">L9 (8-9Y)</option>
+                    <option value="9">L10 (9-10Y)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label># Paths</label>
+                <select id="selPaths">
+                    <option value="20">20</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+            <button class="btn" id="btnSimulate">Simulate</button>
+        </div>
+        <div class="canvas-wrap" style="height:260px">
+            <canvas id="pathCanvas"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Row 3: Correlation Matrix + Impact -->
+<div class="grid">
+    <div class="card">
+        <h2><span class="dot"></span>Correlation Matrix Heatmap</h2>
+        <p style="margin-bottom:.5rem">The correlation structure &rho;<sub>ij</sub> between forward rates. Adjust the decay parameter to see its effect.</p>
+        <div class="controls">
+            <div class="control-group">
+                <label>Correlation Type</label>
+                <select id="corrType">
+                    <option value="exponential" selected>Exponential: &rho;ij = exp(-&beta;|i-j|)</option>
+                    <option value="high">High Correlation: &rho;ij = 0.95</option>
+                    <option value="low">Low Correlation: &rho;ij = 0.3</option>
+                    <option value="block">Block Diagonal</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Decay &beta;</label>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <input type="range" id="corrBeta" min="0.02" max="0.5" step="0.01" value="0.1">
+                    <span class="val-display" id="corrBetaVal">0.10</span>
+                </div>
+            </div>
+        </div>
+        <div class="canvas-wrap" style="height:300px">
+            <canvas id="corrCanvas"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <h2><span class="dot"></span>Correlation Impact on Swaption Prices</h2>
+        <p style="margin-bottom:.75rem">See how changing the correlation structure affects the price of a 5Y into 5Y swaption.</p>
+        <div class="canvas-wrap" style="height:220px">
+            <canvas id="corrImpactCanvas"></canvas>
+        </div>
+        <div class="callout" style="margin-top:.75rem">
+            <div class="callout-title">Why Correlation Matters</div>
+            <p>Caplet prices depend only on individual forward rate volatilities -- not correlations. But swaptions depend on the <em>joint</em> behavior of multiple rates. Higher correlation means rates move together, increasing swaption volatility. Lower correlation provides diversification, lowering swaption prices.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Row 4: Cap/Floor Pricing -->
+<div class="grid">
+    <div class="card full">
+        <h2><span class="dot"></span>Caplet Pricing: Monte Carlo vs. Black Formula</h2>
+        <p style="margin-bottom:.5rem">Compare Monte Carlo simulated caplet prices to the analytical Black formula. The LMM is <em>designed</em> so these match.</p>
+        <div class="controls">
+            <div class="control-group">
+                <label>Strike Rate</label>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <input type="range" id="capStrike" min="0.01" max="0.08" step="0.005" value="0.04">
+                    <span class="val-display" id="capStrikeVal">4.0%</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Vol Level &sigma;</label>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <input type="range" id="capVol" min="0.05" max="0.5" step="0.01" value="0.2">
+                    <span class="val-display" id="capVolVal">20%</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>MC Paths</label>
+                <select id="mcPaths">
+                    <option value="1000">1,000</option>
+                    <option value="5000" selected>5,000</option>
+                    <option value="10000">10,000</option>
+                    <option value="50000">50,000</option>
+                </select>
+            </div>
+            <button class="btn" id="btnPrice">Price Caplets</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:.75rem">
+            <div>
+                <div class="canvas-wrap" style="height:260px">
+                    <canvas id="capCanvas"></canvas>
+                </div>
+                <div class="legend" style="margin-top:.5rem">
+                    <div class="legend-item"><span class="swatch" style="background:var(--accent)"></span>Monte Carlo</div>
+                    <div class="legend-item"><span class="swatch" style="background:var(--green)"></span>Black Formula</div>
+                    <div class="legend-item"><span class="swatch" style="background:var(--yellow)"></span>MC 95% CI</div>
+                </div>
+            </div>
+            <div>
+                <table class="price-table" id="priceTable">
+                    <thead>
+                        <tr><th>Caplet</th><th>Expiry</th><th>Black Price</th><th>MC Price</th><th>Error</th><th>Status</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ============================================================
+// LMM Interactive Dashboard - Core Logic
+// ============================================================
+
+const N = 10;       // number of forward rates
+const delta = 1.0;  // tenor spacing (1 year)
+
+// --- Parameters ---
+const params = {
+    corrType: 'exponential',
+    corrBeta: 0.1,
+    strike: 0.04,
+    vol: 0.2,
+    mcPaths: 5000,
+    selRate: 4,
+    nPaths: 50
+};
+
+// Initial forward rates (upward sloping term structure)
+function initialRates() {
+    const rates = [];
+    for(let k=0;k<N;k++) {
+        rates.push(0.025 + 0.003*k + 0.001*Math.sin(k*0.5));
+    }
+    return rates;
+}
+
+// Volatility per rate (slight term structure)
+function rateVols() {
+    const vols = [];
+    for(let k=0;k<N;k++) {
+        vols.push(params.vol * (0.8 + 0.4 * k/N * Math.exp(-0.15*k)));
+    }
+    return vols;
+}
+
+// --- Correlation matrix ---
+function corrMatrix() {
+    const rho = [];
+    for(let i=0;i<N;i++) {
+        rho[i] = [];
+        for(let j=0;j<N;j++) {
+            if(params.corrType === 'exponential') {
+                rho[i][j] = Math.exp(-params.corrBeta * Math.abs(i-j));
+            } else if(params.corrType === 'high') {
+                rho[i][j] = i===j ? 1 : 0.95;
+            } else if(params.corrType === 'low') {
+                rho[i][j] = i===j ? 1 : 0.3;
+            } else if(params.corrType === 'block') {
+                if(i===j) rho[i][j] = 1;
+                else if(Math.floor(i/5) === Math.floor(j/5)) rho[i][j] = 0.9;
+                else rho[i][j] = 0.3;
+            }
+        }
+    }
+    return rho;
+}
+
+// Cholesky decomposition
+function cholesky(A) {
+    const n = A.length;
+    const L = Array.from({length:n}, () => new Float64Array(n));
+    for(let i=0;i<n;i++) {
+        for(let j=0;j<=i;j++) {
+            let s = 0;
+            for(let k=0;k<j;k++) s += L[i][k]*L[j][k];
+            L[i][j] = i===j ? Math.sqrt(Math.max(0, A[i][i]-s)) : (A[i][j]-s)/L[j][j];
+        }
+    }
+    return L;
+}
+
+function gaussianRandom() {
+    let u=0,v=0;
+    while(!u) u=Math.random();
+    while(!v) v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+// Generate correlated normal random vector
+function corrNormals(L) {
+    const n = L.length;
+    const z = [];
+    for(let i=0;i<n;i++) z.push(gaussianRandom());
+    const w = [];
+    for(let i=0;i<n;i++) {
+        let s = 0;
+        for(let j=0;j<=i;j++) s += L[i][j]*z[j];
+        w.push(s);
+    }
+    return w;
+}
+
+// --- Simulate one path of all forward rates ---
+function simulatePath(L0, vols, rho, nSteps) {
+    const dt = 0.05;  // sub-step
+    const L_chol = cholesky(rho);
+    const path = [L0.slice()];
+
+    let L = L0.slice();
+    for(let step=0; step<nSteps; step++) {
+        const W = corrNormals(L_chol);
+        const newL = L.slice();
+        for(let k=0;k<N;k++) {
+            // Drift under terminal measure
+            let drift = 0;
+            for(let j=k+1;j<N;j++) {
+                drift += vols[k] * rho[k][j] * vols[j] * delta * L[j] / (1 + delta * L[j]);
+            }
+            // Euler step (log)
+            const dLogL = (drift - 0.5*vols[k]*vols[k])*dt + vols[k]*Math.sqrt(dt)*W[k];
+            newL[k] = L[k] * Math.exp(dLogL);
+        }
+        L = newL;
+        path.push(L.slice());
+    }
+    return path;
+}
+
+// --- Black caplet formula ---
+function blackCaplet(F, K, sigma, T, delta_t) {
+    if(T <= 0) return Math.max(0, delta_t * (F - K));
+    const d1 = (Math.log(F/K) + 0.5*sigma*sigma*T) / (sigma*Math.sqrt(T));
+    const d2 = d1 - sigma*Math.sqrt(T);
+    return delta_t * (F * normCDF(d1) - K * normCDF(d2));
+}
+
+function normCDF(x) {
+    const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429;
+    const p=0.3275911;
+    const sign = x<0 ? -1 : 1;
+    x = Math.abs(x)/Math.sqrt(2);
+    const t = 1/(1+p*x);
+    const y = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+    return 0.5*(1+sign*y);
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let simPaths = [];       // array of paths, each path = array of rate arrays
+let capletResults = null;
+const L0 = initialRates();
+
+// Run initial simulation
+function runSimulation() {
+    const vols = rateVols();
+    const rho = corrMatrix();
+    const nSteps = 200; // 200 x 0.05 = 10 years
+    simPaths = [];
+    for(let p=0; p<params.nPaths; p++) {
+        simPaths.push(simulatePath(L0, vols, rho, nSteps));
+    }
+}
+
+function runCapletPricing() {
+    const vols = rateVols();
+    const rho = corrMatrix();
+    const K = params.strike;
+    const nPaths = params.mcPaths;
+    const nSteps = 200;
+
+    // MC pricing
+    const capletPayoffs = Array.from({length:N}, () => []);
+    for(let p=0; p<nPaths; p++) {
+        const path = simulatePath(L0, vols, rho, nSteps);
+        for(let k=0;k<N;k++) {
+            // Caplet k pays max(L_k(T_k) - K, 0) * delta at T_{k+1}
+            // Read rate at its fixing time
+            const fixingStep = Math.min(Math.round((k+1) / (10/nSteps)), nSteps);
+            const Lk_fix = path[fixingStep][k];
+            capletPayoffs[k].push(Math.max(Lk_fix - K, 0) * delta);
+        }
+    }
+
+    capletResults = [];
+    for(let k=0;k<N;k++) {
+        const payoffs = capletPayoffs[k];
+        const mcPrice = payoffs.reduce((a,b)=>a+b,0) / nPaths;
+        const mcVar = payoffs.reduce((a,b)=>a+(b-mcPrice)*(b-mcPrice),0) / (nPaths-1);
+        const mcSE = Math.sqrt(mcVar/nPaths);
+        const blackPrice = blackCaplet(L0[k], K, vols[k], (k+1), delta);
+        capletResults.push({
+            k, mcPrice, mcSE, blackPrice,
+            ciLo: mcPrice - 1.96*mcSE,
+            ciHi: mcPrice + 1.96*mcSE
+        });
+    }
+}
+
+// --- DOM bindings ---
+const $ = id => document.getElementById(id);
+
+$('selRate').addEventListener('change', e => { params.selRate = +e.target.value; });
+$('selPaths').addEventListener('change', e => { params.nPaths = +e.target.value; });
+$('btnSimulate').addEventListener('click', () => { runSimulation(); });
+$('corrType').addEventListener('change', e => { params.corrType = e.target.value; });
+$('corrBeta').addEventListener('input', e => { params.corrBeta = +e.target.value; $('corrBetaVal').textContent = params.corrBeta.toFixed(2); });
+$('capStrike').addEventListener('input', e => { params.strike = +e.target.value; $('capStrikeVal').textContent = (params.strike*100).toFixed(1)+'%'; });
+$('capVol').addEventListener('input', e => { params.vol = +e.target.value; $('capVolVal').textContent = (params.vol*100).toFixed(0)+'%'; });
+$('mcPaths').addEventListener('change', e => { params.mcPaths = +e.target.value; });
+$('btnPrice').addEventListener('click', () => { runCapletPricing(); });
+
+// ============================================================
+// CANVAS RENDERING
+// ============================================================
+
+function setupCanvas(canvas) {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return { ctx, w: rect.width, h: rect.height };
+}
+
+// ---------- 1. Bar Chart of current forward rates ----------
+const barCanvas = $('barCanvas');
+
+function drawBars() {
+    const {ctx, w, h} = setupCanvas(barCanvas);
+    ctx.clearRect(0,0,w,h);
+
+    const pad = {l:50,r:20,t:20,b:40};
+    const pw = w - pad.l - pad.r;
+    const ph = h - pad.t - pad.b;
+    const yMax = 0.07;
+
+    // Grid
+    ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
+    for(let i=0;i<=5;i++) {
+        const y = pad.t + ph*i/5;
+        ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+pw,y); ctx.stroke();
+        ctx.fillStyle = '#484f58'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText((yMax*(1-i/5)*100).toFixed(1)+'%', pad.l-6, y+4);
+    }
+
+    // Bars
+    const barW = pw / N * 0.65;
+    const gap = pw / N;
+    for(let k=0;k<N;k++) {
+        const x = pad.l + k * gap + gap*0.175;
+        const barH = (L0[k] / yMax) * ph;
+        const y = pad.t + ph - barH;
+
+        // Bar gradient
+        const grad = ctx.createLinearGradient(x, y, x, pad.t+ph);
+        grad.addColorStop(0, '#bc8cff');
+        grad.addColorStop(1, 'rgba(188,140,255,0.3)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, barW, barH);
+
+        // Border
+        ctx.strokeStyle = '#bc8cff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, barW, barH);
+
+        // Label
+        ctx.fillStyle = '#e6edf3';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('L'+(k+1), x+barW/2, pad.t+ph+14);
+        ctx.fillText((L0[k]*100).toFixed(2)+'%', x+barW/2, y-5);
+
+        // Tenor
+        ctx.fillStyle = '#484f58';
+        ctx.fillText(k+'-'+(k+1)+'Y', x+barW/2, pad.t+ph+26);
+    }
+}
+
+// ---------- 2. MC Path Canvas ----------
+const pathCanvas = $('pathCanvas');
+
+function drawPaths() {
+    const {ctx, w, h} = setupCanvas(pathCanvas);
+    ctx.clearRect(0,0,w,h);
+
+    if(simPaths.length === 0) {
+        ctx.fillStyle = '#8b949e';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Click "Simulate" to generate Monte Carlo paths', w/2, h/2);
+        return;
+    }
+
+    const pad = {l:50,r:20,t:20,b:30};
+    const pw = w - pad.l - pad.r;
+    const ph = h - pad.t - pad.b;
+    const rateIdx = params.selRate;
+
+    // Find y range
+    let yMin = Infinity, yMax = -Infinity;
+    for(const path of simPaths) {
+        for(const step of path) {
+            const v = step[rateIdx];
+            if(v < yMin) yMin = v;
+            if(v > yMax) yMax = v;
+        }
+    }
+    const yPad = (yMax-yMin)*0.1 || 0.01;
+    yMin -= yPad; yMax += yPad;
+
+    const nSteps = simPaths[0].length;
+    const tMax = nSteps * 0.05;
+
+    // Grid
+    ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
+    for(let i=0;i<=4;i++) {
+        const y = pad.t + ph*i/4;
+        ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+pw,y); ctx.stroke();
+        ctx.fillStyle = '#484f58'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+        const val = yMax - (yMax-yMin)*i/4;
+        ctx.fillText((val*100).toFixed(2)+'%', pad.l-6, y+4);
+    }
+    for(let i=0;i<=10;i++) {
+        const x = pad.l + pw*i/10;
+        ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke();
+        ctx.fillStyle = '#484f58'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText((tMax*i/10).toFixed(1)+'Y', x, pad.t+ph+14);
+    }
+
+    // Paths
+    const colors = ['#bc8cff','#58a6ff','#3fb950','#d29922','#f85149','#a371f7','#79c0ff','#7ee787','#e3b341','#ffa198'];
+    for(let p=0; p<simPaths.length; p++) {
+        ctx.beginPath();
+        ctx.strokeStyle = colors[p % colors.length];
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = 1;
+        const path = simPaths[p];
+        for(let s=0; s<path.length; s+=2) {
+            const x = pad.l + (s/(nSteps-1))*pw;
+            const y = pad.t + (1 - (path[s][rateIdx]-yMin)/(yMax-yMin))*ph;
+            if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Mean path
+    ctx.beginPath();
+    ctx.strokeStyle = '#bc8cff';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#bc8cff';
+    ctx.shadowBlur = 6;
+    for(let s=0; s<nSteps; s+=2) {
+        let mean = 0;
+        for(const path of simPaths) mean += path[s][rateIdx];
+        mean /= simPaths.length;
+        const x = pad.l + (s/(nSteps-1))*pw;
+        const y = pad.t + (1 - (mean-yMin)/(yMax-yMin))*ph;
+        if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Label
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`L${rateIdx+1} | ${simPaths.length} paths`, w-pad.r-4, pad.t+14);
+}
+
+// ---------- 3. Correlation Heatmap ----------
+const corrCanvas = $('corrCanvas');
+
+function drawCorrelation() {
+    const {ctx, w, h} = setupCanvas(corrCanvas);
+    ctx.clearRect(0,0,w,h);
+
+    const rho = corrMatrix();
+    const pad = {l:40,r:60,t:30,b:40};
+    const size = Math.min(w-pad.l-pad.r, h-pad.t-pad.b);
+    const cellW = size / N;
+    const cellH = size / N;
+    const ox = pad.l + (w-pad.l-pad.r-size)/2;
+    const oy = pad.t;
+
+    for(let i=0;i<N;i++) {
+        for(let j=0;j<N;j++) {
+            const v = rho[i][j];
+            // Color map: low=dark blue -> high=bright purple
+            const r = Math.round(50 + 138 * v);
+            const g = Math.round(20 + 120 * v * v);
+            const b = Math.round(100 + 155 * v);
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(ox + j*cellW, oy + i*cellH, cellW-1, cellH-1);
+
+            // Value text
+            if(cellW > 20) {
+                ctx.fillStyle = v > 0.7 ? '#000' : '#fff';
+                ctx.font = `${Math.min(10, cellW*0.35)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(v.toFixed(2), ox+j*cellW+cellW/2, oy+i*cellH+cellH/2+4);
+            }
+        }
+        // Row labels
+        ctx.fillStyle = '#8b949e';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('L'+(i+1), ox-6, oy+i*cellH+cellH/2+4);
+        // Col labels
+        ctx.textAlign = 'center';
+        ctx.fillText('L'+(i+1), ox+i*cellW+cellW/2, oy+size+14);
+    }
+
+    // Color bar
+    const cbX = ox+size+15, cbW=15, cbH=size;
+    for(let y=0;y<cbH;y++) {
+        const v = 1 - y/cbH;
+        const r = Math.round(50 + 138 * v);
+        const g = Math.round(20 + 120 * v * v);
+        const b = Math.round(100 + 155 * v);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(cbX, oy+y, cbW, 1);
+    }
+    ctx.strokeStyle = '#30363d';
+    ctx.strokeRect(cbX, oy, cbW, cbH);
+    ctx.fillStyle = '#8b949e'; ctx.font = '9px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('1.00', cbX+cbW+4, oy+8);
+    ctx.fillText('0.50', cbX+cbW+4, oy+cbH/2+3);
+    ctx.fillText('0.00', cbX+cbW+4, oy+cbH+2);
+
+    // Title
+    ctx.fillStyle = '#8b949e'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Forward Rate Correlation Matrix', ox+size/2, oy-10);
+}
+
+// ---------- 4. Correlation Impact Chart ----------
+const corrImpactCanvas = $('corrImpactCanvas');
+
+function drawCorrImpact() {
+    const {ctx, w, h} = setupCanvas(corrImpactCanvas);
+    ctx.clearRect(0,0,w,h);
+
+    const pad = {l:55,r:20,t:25,b:35};
+    const pw = w - pad.l - pad.r;
+    const ph = h - pad.t - pad.b;
+
+    // Compute swaption vol proxy for different correlation levels
+    const betas = [];
+    const swapVols = [];
+    const vols = rateVols();
+
+    for(let b=0; b<=50; b++) {
+        const beta = b * 0.01;
+        betas.push(beta);
+
+        // Build correlation matrix
+        const rho = [];
+        for(let i=0;i<N;i++){
+            rho[i]=[];
+            for(let j=0;j<N;j++) rho[i][j] = Math.exp(-beta*Math.abs(i-j));
+        }
+
+        // Approximate swaption vol as sqrt of sum of correlated rate vols
+        // For a 5Y into 5Y swap
+        let totalVar = 0;
+        for(let i=4;i<9;i++) {
+            for(let j=4;j<9;j++) {
+                totalVar += vols[i] * vols[j] * rho[i][j] / 25;
+            }
+        }
+        swapVols.push(Math.sqrt(totalVar));
+    }
+
+    const yMin = Math.min(...swapVols)*0.9;
+    const yMax = Math.max(...swapVols)*1.1;
+
+    // Grid
+    ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
+    for(let i=0;i<=4;i++) {
+        const y = pad.t + ph*i/4;
+        ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+pw,y); ctx.stroke();
+        ctx.fillStyle = '#484f58'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+        const val = yMax - (yMax-yMin)*i/4;
+        ctx.fillText((val*100).toFixed(1)+'%', pad.l-6, y+4);
+    }
+    for(let i=0;i<=5;i++) {
+        const x = pad.l + pw*i/5;
+        ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke();
+        ctx.fillStyle = '#484f58'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText((0.5*i/5).toFixed(2), x, pad.t+ph+14);
+    }
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = '#bc8cff';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#bc8cff';
+    ctx.shadowBlur = 6;
+    for(let b=0;b<betas.length;b++) {
+        const x = pad.l + (betas[b]/0.5)*pw;
+        const y = pad.t + (1-(swapVols[b]-yMin)/(yMax-yMin))*ph;
+        if(b===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Current beta marker
+    const curX = pad.l + (params.corrBeta/0.5)*pw;
+    const curIdx = Math.round(params.corrBeta/0.01);
+    if(curIdx >= 0 && curIdx < swapVols.length) {
+        const curY = pad.t + (1-(swapVols[curIdx]-yMin)/(yMax-yMin))*ph;
+        ctx.beginPath();
+        ctx.arc(curX, curY, 5, 0, Math.PI*2);
+        ctx.fillStyle = '#bc8cff';
+        ctx.fill();
+        ctx.fillStyle = '#e6edf3';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText((swapVols[curIdx]*100).toFixed(1)+'%', curX, curY-10);
+    }
+
+    // Labels
+    ctx.fillStyle = '#8b949e'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Correlation Decay Parameter \u03B2', pad.l+pw/2, h-4);
+    ctx.save(); ctx.translate(12, pad.t+ph/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText('5Y x 5Y Swaption Vol Proxy', 0, 0);
+    ctx.restore();
+
+    // Title
+    ctx.fillStyle = '#bc8cff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Higher \u03B2 = Lower Correlation = Lower Swaption Vol', pad.l+pw/2, pad.t-6);
+}
+
+// ---------- 5. Caplet Pricing Canvas ----------
+const capCanvas = $('capCanvas');
+
+function drawCaplets() {
+    const {ctx, w, h} = setupCanvas(capCanvas);
+    ctx.clearRect(0,0,w,h);
+
+    if(!capletResults) {
+        ctx.fillStyle = '#8b949e';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Click "Price Caplets" to run Monte Carlo', w/2, h/2);
+        return;
+    }
+
+    const pad = {l:55,r:20,t:20,b:35};
+    const pw = w - pad.l - pad.r;
+    const ph = h - pad.t - pad.b;
+
+    let yMax = 0;
+    for(const r of capletResults) {
+        yMax = Math.max(yMax, r.blackPrice, r.mcPrice + r.mcSE*2);
+    }
+    yMax *= 1.2 || 0.01;
+
+    // Grid
+    ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
+    for(let i=0;i<=5;i++) {
+        const y = pad.t + ph*i/5;
+        ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+pw,y); ctx.stroke();
+        ctx.fillStyle = '#484f58'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText((yMax*(1-i/5)*10000).toFixed(1)+' bps', pad.l-6, y+4);
+    }
+
+    const barGroup = pw / N;
+    const barW = barGroup * 0.35;
+
+    for(let k=0;k<N;k++) {
+        const r = capletResults[k];
+        const xBase = pad.l + k*barGroup + barGroup*0.075;
+
+        // MC bar
+        const mcH = (r.mcPrice / yMax) * ph;
+        const mcY = pad.t + ph - mcH;
+        ctx.fillStyle = 'rgba(188,140,255,0.7)';
+        ctx.fillRect(xBase, mcY, barW, mcH);
+        ctx.strokeStyle = '#bc8cff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(xBase, mcY, barW, mcH);
+
+        // CI whisker
+        const ciLoY = pad.t + ph - (r.ciLo/yMax)*ph;
+        const ciHiY = pad.t + ph - (r.ciHi/yMax)*ph;
+        ctx.strokeStyle = '#d29922';
+        ctx.lineWidth = 1.5;
+        const mx = xBase + barW/2;
+        ctx.beginPath(); ctx.moveTo(mx, ciLoY); ctx.lineTo(mx, ciHiY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(mx-3, ciLoY); ctx.lineTo(mx+3, ciLoY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(mx-3, ciHiY); ctx.lineTo(mx+3, ciHiY); ctx.stroke();
+
+        // Black bar
+        const bH = (r.blackPrice / yMax) * ph;
+        const bY = pad.t + ph - bH;
+        ctx.fillStyle = 'rgba(63,185,80,0.7)';
+        ctx.fillRect(xBase+barW+2, bY, barW, bH);
+        ctx.strokeStyle = '#3fb950';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(xBase+barW+2, bY, barW, bH);
+
+        // X label
+        ctx.fillStyle = '#8b949e'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('L'+(k+1), xBase+barW, pad.t+ph+14);
+    }
+
+    // Update table
+    const tbody = document.querySelector('#priceTable tbody');
+    tbody.innerHTML = '';
+    for(let k=0;k<N;k++) {
+        const r = capletResults[k];
+        const err = Math.abs(r.mcPrice - r.blackPrice);
+        const relErr = r.blackPrice > 0 ? (err/r.blackPrice*100).toFixed(1) : '0.0';
+        const within = r.blackPrice >= r.ciLo && r.blackPrice <= r.ciHi;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>L<sub>${k+1}</sub></td>
+            <td>${k+1}Y</td>
+            <td>${(r.blackPrice*10000).toFixed(2)} bps</td>
+            <td>${(r.mcPrice*10000).toFixed(2)} bps</td>
+            <td>${relErr}%</td>
+            <td class="${within?'match':'mismatch'}">${within?'Within CI':'Outside CI'}</td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+// ============================================================
+// RENDER LOOP
+// ============================================================
+function renderAll() {
+    drawBars();
+    drawPaths();
+    drawCorrelation();
+    drawCorrImpact();
+    drawCaplets();
+}
+
+// Initial simulation
+runSimulation();
+renderAll();
+
+// Re-render on changes
+const renderInputs = ['corrType','corrBeta','capStrike','capVol','selRate','selPaths','mcPaths'];
+for(const id of renderInputs) {
+    $(id).addEventListener('change', renderAll);
+    $(id).addEventListener('input', renderAll);
+}
+$('btnSimulate').addEventListener('click', () => setTimeout(renderAll, 50));
+$('btnPrice').addEventListener('click', () => setTimeout(renderAll, 50));
+
+window.addEventListener('resize', renderAll);
+</script>
+</body>
+</html>

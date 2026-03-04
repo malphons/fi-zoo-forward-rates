@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forward Rate Models - Fixed Income Model Zoo</title>
+    <meta http-equiv="refresh" content="3;url=../app_fi_zoo/#forward-rates">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{
+            background:#0d1117;
+            color:#e6edf3;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-height:100vh;
+            overflow:hidden;
+        }
+        .container{text-align:center;position:relative;z-index:1}
+        h1{
+            font-size:2rem;
+            font-weight:600;
+            margin-bottom:.5rem;
+            background:linear-gradient(135deg,#a371f7,#d2a8ff);
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
+        }
+        p{color:#8b949e;font-size:1rem;margin-bottom:2rem}
+        .spinner{
+            width:40px;height:40px;margin:0 auto 1.5rem;
+            border:3px solid #21262d;
+            border-top-color:#a371f7;
+            border-radius:50%;
+            animation:spin .8s linear infinite;
+        }
+        @keyframes spin{to{transform:rotate(360deg)}}
+        a{color:#a371f7;text-decoration:none;font-size:.9rem}
+        a:hover{text-decoration:underline}
+
+        /* Background animation */
+        canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+    </style>
+</head>
+<body>
+    <canvas id="bg"></canvas>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>Forward Rate Models</h1>
+        <p>Redirecting to the Fixed Income Model Zoo...</p>
+        <a href="../app_fi_zoo/#forward-rates">Click here if not redirected</a>
+    </div>
+    <script>
+        // Animated background curves
+        const canvas = document.getElementById('bg');
+        const ctx = canvas.getContext('2d');
+        let W, H;
+        function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+        resize();
+        window.addEventListener('resize', resize);
+
+        let t = 0;
+        function draw() {
+            ctx.fillStyle = 'rgba(13,17,23,0.15)';
+            ctx.fillRect(0, 0, W, H);
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(163,113,247,${0.08 + i * 0.03})`;
+                ctx.lineWidth = 1.5;
+                for (let x = 0; x <= W; x += 4) {
+                    const y = H * 0.5
+                        + Math.sin(x * 0.003 + t * 0.01 + i * 0.8) * (80 + i * 20)
+                        + Math.sin(x * 0.007 + t * 0.015 + i) * 30;
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            t++;
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>

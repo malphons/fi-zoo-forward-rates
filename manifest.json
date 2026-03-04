@@ -1,0 +1,38 @@
+{
+  "spoke_id": "forward-rates",
+  "label": "Forward Rate Models",
+  "models": [
+    {
+      "id": "hjm",
+      "name": "Heath-Jarrow-Morton Framework",
+      "short_description": "A general no-arbitrage framework that models the evolution of the entire forward rate curve simultaneously.",
+      "family": "forward-rates",
+      "subcategory": "general",
+      "tags": ["forward-curve", "no-arbitrage", "drift-restriction", "infinite-dimensional"],
+      "year_introduced": 1992,
+      "key_paper": "Heath, Jarrow & Morton (1992)",
+      "complexity": "advanced",
+      "color_accent": "#a371f7",
+      "formula": "df(t,T) = α(t,T)dt + σ(t,T)dW",
+      "products": ["exotic interest rate derivatives", "structured products"],
+      "related_models": ["hull-white", "lmm"],
+      "key_insight": "The drift is fully determined by the volatility function under no-arbitrage."
+    },
+    {
+      "id": "lmm",
+      "name": "LIBOR Market Model (BGM)",
+      "short_description": "Models discrete forward LIBOR rates directly under their forward measure, producing market-consistent cap/swaption prices.",
+      "family": "forward-rates",
+      "subcategory": "market",
+      "tags": ["libor", "forward-measure", "log-normal", "market-consistent", "monte-carlo"],
+      "year_introduced": 1997,
+      "key_paper": "Brace, Gatarek & Musiela (1997)",
+      "complexity": "advanced",
+      "color_accent": "#a371f7",
+      "formula": "dLk(t) = Lk(t)(μk dt + σk dW)",
+      "products": ["caps/floors", "swaptions", "CMS products"],
+      "related_models": ["hjm", "black-model", "sabr"],
+      "key_insight": "By modeling observable market rates, calibration to cap/floor vols is direct."
+    }
+  ]
+}
